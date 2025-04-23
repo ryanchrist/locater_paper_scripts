@@ -1,0 +1,7 @@
+#! /bin/bash
+# set R data.table to use 1 thread. I don't think it's currently being used
+# in any forked routines but just to be safe.
+export R_DATATABLE_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=$2
+#(BLAS of course depends on the blas on the docker image used)
+/usr/local/bin/Rscript --vanilla $1 $2 $3
