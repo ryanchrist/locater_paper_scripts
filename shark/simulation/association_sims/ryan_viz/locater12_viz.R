@@ -1,37 +1,21 @@
-require(locater)
 require(data.table)
+setDTthreads(4L)
 require(dplyr)
 require(stringr)
-shark.dir <- "~/Dropbox/shark/"
-plot.dir <- "~/Dropbox/Hall_group/locater_sims/plots/locater12/"
+
+# path to where a csv.gz with all results collected is stored
+collected_results_path <- "~/Dropbox/Hall_group/locater_sims/collected_results/"
+
+plot.dir <- "~/Desktop/"
 if(!dir.exists(plot.dir)){dir.create(plot.dir,recursive = TRUE)}
+
 
 #  BELOW HERE SHOULD NOT NEED TO BE MODIFIED FOR REPLICABILITY
 ##################################################################
 
-n.samps <- 1000
-samp.ind <- rep(FALSE,n.samps)
-res.list <- details.list<- as.list(1:n.samps)
+res <- fread(paste0(collected_results_path,"locater12.csv.gz"))
 
-for(i in 1:n.samps){
-  target.file <- paste0("~/Dropbox/Hall_group/locater_sims/locater12/res_",i,".rds")
-  target.file2 <- paste0("~/Dropbox/Hall_group/locater_sims/locater12/details_",i,".rds")
 
-  if(!file.exists(target.file)){next}
-  tryCatch({
-    res.list[[i]] <- readRDS(target.file)
-    details.list[[i]] <- readRDS(target.file2)
-    samp.ind[i] <- TRUE
-  },error=function(e){print(e)})
-}
-
-res.list <- res.list[samp.ind]
-res <- rbindlist(res.list,idcol = TRUE)
-details.list <- details.list[samp.ind]
-rm(res.list);gc()
-
-# Were all replicates retreived from directory?
-all(samp.ind)
 
 # Declare helper functions
 check_tail <- function(x,cutoff = 0.001,p = NULL){
@@ -147,16 +131,3 @@ points(qexp(ppoints(1e6)[plot_idx],rate = log(10)),sort(res$tot)[plot_idx])
 abline(0,1,col="red")
 
 dev.off()
-
-
-plot(qexp(ppoints(1000),rate = log(10)),quantile(res$tot,probs = ppoints(1000),na.rm=T),
-     main="LOCATER (combined)",
-     bty="n",las=1, xlab="Expected Quantiles",ylab="Observed Quantiles"); abline(0,1)
-
-
-
-cutoff <- 0.01
-qq(res$smt,cutoff = cutoff, main="SMT",ylim=c(0,6),xlim=c(0,6))
-qq(res$rd,cutoff = cutoff,main = "Stable Distillation",ylim=c(0,6),xlim=c(0,6))
-qq(res$qform,cutoff = cutoff, main = "QForm",ylim=c(0,6),xlim=c(0,6))
-qq(res$tot,cutoff=cutoff, main = "LOCATER (Combined)",ylim=c(0,6),xlim=c(0,6))

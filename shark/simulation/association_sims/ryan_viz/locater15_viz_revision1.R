@@ -1,14 +1,37 @@
-require(locater)
+# locater15
+#
+# Script for reproducing power, localization, and source plots
+# based on simulations where the causal variants are HIDDEN
+# and all within a 10kb causal region
+#
+# Should be run AFTER running locater14_viz_revision1.R
+#
+###################################################################
+
+# Load Packages
 require(data.table)
+setDTthreads(4L)
 require(dplyr)
 require(stringr)
+
+# Declare path to shark directory (top of the locater_paper_scripts repository)
 shark.dir <- "~/Dropbox/shark/"
+
+# Declare path for putting plots
 plot.dir <- "~/Desktop/"
 if(!dir.exists(plot.dir)){dir.create(plot.dir,recursive = TRUE)}
 
-# Declare Plotting Resources
-###############################
-source(paste0(shark.dir,"simulation/association_sims/ryan_viz/locater_paper_fig_utils.R"))
+# path to where a directory where the csv.gz files with our simulation results are stored
+collected_results_path <- "~/Dropbox/Hall_group/locater_sims/collected_results/"
+
+# path_to_temp_storage . Must match definition of path_to_temp_storage
+# used in locater14_viz_revision_1.R since that is where locater14_viz_revision_1.R
+# will have stored the significance cutoffs to be used
+path_to_temp_storage <- "~/Dropbox/Hall_group/locater_sims/"
+
+# Import cutoffs
+cutoffs <- readRDS(paste0(path_to_temp_storage,"locater14_derived_genome_wide_cutoffs.rds"))
+
 
 
 
@@ -20,97 +43,25 @@ source(paste0(shark.dir,"simulation/association_sims/ryan_viz/locater_paper_fig_
 ##################################################################
 ##################################################################
 
+# Load Plotting Resources
+###############################
+source(paste0(shark.dir,"simulation/association_sims/ryan_viz/locater_paper_fig_utils.R"))
 
 
 # LOAD DATA
 ##################################################################
 
-
 # LOAD LOCATER SIMS
-n.samps <- 900
-samp.ind <- rep(FALSE,n.samps)
-res.list <- as.list(1:n.samps)
-for(i in 1:n.samps){
-  target.file <- paste0("~/Dropbox/Hall_group/locater_sims/locater15/res_",i,".rds")
-
-  if(!file.exists(target.file)){next}
-  tryCatch({
-    res.list[[i]] <- readRDS(target.file)
-    samp.ind[i] <- TRUE
-  },error=function(e){print(e)})
-
-  # Remove redundant/un-needed variables to help conserve memory
-  res.list[[i]][,c("obs.qform.T",
-                   "precise",
-                   "sw.thresh",
-                   "eig.thresh",
-                   "smt.noise",
-                   "thresh",
-                   "max1var",
-                   "details_idx",
-                   "old.sprigs",
-                   "max.k",
-                   "calc.obs.T",
-                   "exit.status",
-                   "k",
-                   "test.config") := NULL]
-
-
-  print(i)
-}
-
-res <- rbindlist(res.list[samp.ind],idcol = TRUE)
-rm(res.list);gc()
-
-
-## LOAD STAAR SIMS
-# n.samps <- 900
-# samp.ind <- rep(FALSE,n.samps)
-# res.list <- as.list(1:n.samps)
-# for(i in 1:n.samps){
-#   target.file <- paste0("~/Dropbox/Hall_group/locater_sims/staar15/res_",i,".rds")
-#
-#   if(!file.exists(target.file)){next}
-#   tryCatch({
-#     res.list[[i]] <- readRDS(target.file)
-#     samp.ind[i] <- TRUE
-#   },error=function(e){print(e)})
-#
-#
-#   print(i)
-# }
-#
-# res_staar <- rbindlist(res.list[samp.ind],idcol = TRUE)
-# rm(res.list);gc()
-#
-# # quality control checks
-# any(!is.finite(res_staar$acat_with_cutoff))
-# any(!is.finite(res_staar$acat_no_cutoff))
-
-
+res <- fread(paste0(collected_results_path,"locater15.csv.gz"))
 
 # LOAD ARG-NEEDLE SIMS
-n.samps <- 900
-samp.ind <- rep(FALSE,n.samps)
-res.list <- as.list(1:n.samps)
-for(i in 1:n.samps){
-  target.file <- paste0("~/Dropbox/Hall_group/locater_sims/argneedle14/res_",i,".rds")
-
-  if(!file.exists(target.file)){next}
-  tryCatch({
-    res.list[[i]] <- readRDS(target.file)
-    samp.ind[i] <- TRUE
-  },error=function(e){print(e)})
-
-  res.list[[i]][,.id:=NULL]
-
-  print(i)
-}
-
-res_an <- rbindlist(res.list[samp.ind],idcol = TRUE)
-rm(res.list);gc()
-
-
+# here we load argneedle14 because argneedle yields the same testing
+# results whether or not the causal variants were hidden in the
+# original haplotype dataset since we just
+# give argneedle the true underlying ARG.
+# argneelde just places new mutations on that ARG according to
+# a Poisson process.
+res_an <- fread(paste0(collected_results_path,"argneedle14.csv.gz"))
 
 
 
@@ -189,33 +140,6 @@ x_key[,ac_range:= case_match(ac_range,
 
 
 
-# Quality Check Results
-###############################
-#
-# # Look back to understand why we could be getting a max LOCATER signal of 6.7 over a chromosome
-# # if we indeed have target signal of 150
-# res[target_signal==150 & p_active==9 & ac_range == "any", max(smt), list(.id,rep)][,summary(V1)]
-# temp_res <- res[target_signal==150 & p_active==9 & ac_range == "any" & targeted == TRUE, max(tot), list(.id,rep)]
-# head(temp_res[order(temp_res$V1),],20)
-# # looks like we need to investigate the details of simulation 725
-# td <- readRDS("~/Dropbox/Hall_group/locater_sims/locater14/details_725.rds")
-#
-# res[target_signal==150 & p_active==9 & ac_range == "any" & .id==725, max(smt), list(rep)]
-#
-# res[target_signal==150 & p_active==9 & ac_range == "any" & .id==725 & rep==1 & targeted==TRUE,]
-#
-#
-#
-# # see sims that are yielding 0 for the oracle
-# res[target_signal==150,oracle[1],list(.id,rep)][V1==0,]
-# # no discernable pattern:
-# unique(res[target_signal==150,oracle[1],list(.id,rep)][V1==0,]$.id)%%9
-
-
-# Import cutoffs
-###########################
-cutoffs <- readRDS("~/Dropbox/Hall_group/locater_sims/locater14_derived_genome_wide_cutoffs.rds")
-
 
 # Calculate Power Curves with SMT, LOCATER and ARG-NEEDLE
 ###########################################################
@@ -230,8 +154,9 @@ for(pa in unique(x_key$p_active)){
        xlab="",ylab="",
        main="", xaxt="n",yaxt="n")
   axis(2,seq(0,1,by=0.2),pos=0,las=1,cex.axis=1.4)
-  axis(1,seq(0,150,by=30),pos=0,las=1,cex.axis=1.4)
-  mtext("Signal Strength",side = 1,line = 2,cex=1.4)
+  axis(1,seq(0,150,by=50),pos=0,las=1,cex.axis=1.4)
+  axis(1,seq(0,150,by=10),pos=0,las=1,labels = FALSE)
+  mtext("Total Association Signal Strength",side = 1,line = 2,cex=1.4)
   mtext("Power",side = 2,line = 2,cex=1.4)
 
   for(j in 1:length(ac_names)){
@@ -259,49 +184,6 @@ for(pa in unique(x_key$p_active)){
 }
 
 
-
-
-
-
-#
-#
-# # Calculate Power Curves with STAAR, LOCATER, and SMT
-# #########################################################
-#
-# for(pa in unique(x_key$p_active)){
-#
-#   cairo_pdf(paste0(plot.dir,"/power_",pa,"_active_vars_hidden_vars_with_acat_oracle.pdf"),width = 10,height=8)
-#
-#   par(oma = c(1, 1, 1, 1), mar = c(2.5, 2.5, 0.5, 0.5))
-#
-#   plot(0,0,type="n",ylim=c(0,1),xlim=c(0,150),las=1,bty="n",
-#        xlab="",ylab="",
-#        main="", xaxt="n",yaxt="n")
-#   axis(2,seq(0,1,by=0.2),pos=0,las=1,cex.axis=1.4)
-#   axis(1,seq(0,150,by=30),pos=0,las=1,cex.axis=1.4)
-#   mtext("Signal Strength",side = 1,line = 2,cex=1.4)
-#   mtext("Power",side = 2,line = 2,cex=1.4)
-#
-#   for(j in 1:length(ac_names)){
-#     # lines(res[x_id==i, oracle[1], list(.id,rep,target_signal)][#.id!=38
-#     #   ,mean(V1 > cutoff),target_signal],col=colpal[i],lwd=3,lty=1)
-#     lines(res[p_active==pa & ac_range == ac_names[j], max(smt), list(.id,rep,target_signal)][#.id!=38
-#       ,mean(V1 > cutoff),target_signal],col=colpal[j],lwd=3,lty=1)
-#     lines(res[p_active==pa & ac_range == ac_names[j] & targeted == TRUE, max(tot), list(.id,rep,target_signal)][#.id!=38
-#       ,mean(V1 > cutoff),target_signal],col=colpal[j],lwd=3,lty=3)
-#
-#     lines(res_staar[p_active==pa & ac_range == ac_names[j], acat_with_cutoff, list(.id,rep,target_signal)][
-#       ,mean(acat_with_cutoff > staar_discovery_cutoff),target_signal],col=colpal[j],lwd=3,lty=5)
-#
-#     lines(res_staar[p_active==pa & ac_range == ac_names[j], acat_no_cutoff, list(.id,rep,target_signal)][
-#       ,mean(acat_no_cutoff > staar_discovery_cutoff),target_signal],col=colpal[j],lwd=3,lty=6)
-#
-#   }
-#   legend(x = 100,y = 0.6,legend = c("SMT","LOCATER","ORACLE ACAT - rare vars","ORACLE ACAT - all vars"),lty=c(1,3,5,6),lwd=3,border = NA,bty="n")
-#   legend(x = 100,y = 0.4,legend = ac_names,fill = colpal[1:3],border = NA,bty="n")
-#   dev.off()
-# }
-#
 
 
 # CALC 80% POWER SIGNAL CUTOFFS
@@ -353,22 +235,6 @@ for(pa in unique(x_key$p_active)){
     ][,approx(V1,target_signal,xout = 0.8,method = "linear", ties = "ordered")$y]
 
 
-    # x_key[p_active==pa & ac_range == ac_names[j], "acat_rare_80p_signal"] <- res_staar[
-    #   p_active==pa & ac_range == ac_names[j], ACAT_O_with_cutoff, list(.id,rep,target_signal)
-    # ][
-    #   ,mean(ACAT_O_with_cutoff > cutoffs$acat_rare),target_signal
-    # ][
-    #   ,approx(V1,target_signal,xout = 0.8,method = "linear", ties = "ordered")$y
-    # ]
-    #
-    # x_key[p_active==pa & ac_range == ac_names[j], "acat_all_80p_signal"] <- res_staar[
-    #   p_active==pa & ac_range == ac_names[j], ACAT_O_no_cutoff, list(.id,rep,target_signal)
-    # ][
-    #   ,mean(ACAT_O_no_cutoff > cutoffs$acat_all),target_signal
-    # ][
-    #   ,approx(V1,target_signal,xout = 0.8,method = "linear", ties = "ordered")$y
-    # ]
-
     x_key[p_active==pa & ac_range == ac_names[j], "smt_localization"] <-
       res[p_active==pa & ac_range == ac_names[j] & smt >= cutoff,
           2*mean(abs(5e5-pos[smt==max(smt)]))/1e3,
@@ -407,16 +273,6 @@ for(pa in unique(x_key$p_active)){
   }
 }
 
-# x_key[,locater_gain:=pmax(0,smt_80p_signal-locater_80p_signal)]
-# x_key[,smt_gain:=pmax(0,locater_80p_signal-smt_80p_signal)]
-
-
-# cairo_pdf(paste0(plot.dir,"/power_summary_barplot_hidden_vars.pdf"),width = 8,height=8)
-# make_locater_summary_boxplot(
-#   x_key[c(3,6,9,2,5,8,1,4,7),list(locater_80p_signal,locater_gain,smt_gain)],
-#   "Signal Strength Required to Achieve 80% Power")
-# dev.off()
-
 
 # MAKE POWER DOTPLOT
 ############################
@@ -454,6 +310,7 @@ custom_dotplot <- function(x, x_max, col = "#000000"){
   # segments(x$ORACLE,(nrow(x):1)-0.1,x$ORACLE,(nrow(x):1)+0.1,
   #          col = "#000000",lwd=4)
   axis(1,at=pretty(seq(0,x_max,len=5)),pos=0,lwd=2)
+  axis(1,at=seq(0,150,by=10),pos=0,lwd=1,labels = FALSE)
 
   y_labels <- paste0(x$ac_range,c("         ",
                                   "         ",
@@ -514,8 +371,9 @@ for(pa in unique(x_key$p_active)){
        xlab="",ylab="",
        main="", xaxt="n",yaxt="n")
   axis(2,seq(0,1,by=0.2),pos=0,las=1,cex.axis=1.4)
-  axis(1,seq(0,150,by=30),pos=0,las=1,cex.axis=1.4)
-  mtext("Signal Strength",side = 1,line = 2,cex=1.4)
+  axis(1,seq(0,150,by=50),pos=0,las=1,cex.axis=1.4)
+  axis(1,seq(0,150,by=10),pos=0,las=1,labels = FALSE)
+  mtext("Total Association Signal Strength",side = 1,line = 2,cex=1.4)
   mtext("Proportion of LOCATER Signal",side = 2,line = 2,cex=1.4)
 
   for(j in 1:length(ac_names)){
@@ -557,8 +415,9 @@ for(pa in unique(x_key$p_active)){
        xlab="",ylab="",
        main="", xaxt="n",yaxt="n")
   axis(2,seq(0,1000,by=200),pos=0,las=1,cex.axis=1.4)
-  axis(1,seq(0,150,by=30),pos=0,las=1,cex.axis=1.4)
-  mtext("Signal Strength",side = 1,line = 2,cex=1.4)
+  axis(1,seq(0,150,by=50),pos=0,las=1,cex.axis=1.4)
+  axis(1,seq(0,150,by=10),pos=0,las=1,labels = FALSE)
+  mtext("Total Association Signal Strength",side = 1,line = 2,cex=1.4)
   mtext("80% CI Width (kb)",side = 2,line = 2,cex=1.4)
 
 
@@ -610,26 +469,6 @@ for(pa in unique(x_key$p_active)){
          lty=c(1,2,3),lwd=2, col=colpal[9], border = NA,bty="n",xpd=TRUE)
   dev.off()
 }
-
-#
-# x_key[,min_localization:=pmin(locater_localization,smt_localization)]
-# x_key[,locater_localization_gain:=pmax(0,locater_localization-smt_localization)]
-# x_key[,smt_localization_gain:=pmax(0,smt_localization-locater_localization)]
-#
-#
-# cairo_pdf(paste0(plot.dir,"/localization_summary_barplot_hidden_vars.pdf"),width = 8,height=8)
-# make_locater_summary_boxplot(
-#   x_key[c(3,6,9,2,5,8,1,4,7),list(min_localization,locater_localization_gain,smt_localization_gain)],
-#   "80% CI Width (kb)")
-# dev.off()
-
-
-#####
-# Save results for processing alongside locater17 results in locater17_viz.R
-################################################################################
-
-saveRDS(res[p_active==9,],"~/Dropbox/Hall_group/locater_sims/locater15_9_active_vars_res.rds")
-
 
 
 
